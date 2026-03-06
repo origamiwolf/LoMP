@@ -1,4 +1,7 @@
+
 package com.github.origamiwolf.lomp.ui.dice
+import com.github.origamiwolf.lomp.data.DicePreferencesRepository
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -22,7 +25,10 @@ import com.github.origamiwolf.lomp.data.model.DiceHistoryEntry
 
 @Composable
 fun DiceScreen(
-    viewModel: DiceViewModel = viewModel()
+    diceRepository: DicePreferencesRepository,
+    viewModel: DiceViewModel = viewModel(
+        factory = DiceViewModel.Factory(diceRepository)
+    )
 ) {
     val expression by viewModel.expression.collectAsState()
     val result by viewModel.result.collectAsState()

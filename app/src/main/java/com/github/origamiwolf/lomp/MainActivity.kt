@@ -9,17 +9,18 @@ import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.padding
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.github.origamiwolf.lomp.data.DicePreferencesRepository
 import com.github.origamiwolf.lomp.ui.dice.DiceScreen
 import com.github.origamiwolf.lomp.ui.oracle.OracleScreen
 import com.github.origamiwolf.lomp.ui.theme.LoMPTheme
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.padding
 
 sealed class Screen(val route: String, val label: String) {
     object Dice : Screen("dice", "Dice")
@@ -27,18 +28,28 @@ sealed class Screen(val route: String, val label: String) {
 }
 
 class MainActivity : ComponentActivity() {
+
+    // Created once for the lifetime of the Activity.
+    // applicationContext is used rather than 'this' to avoid
+    // accidentally holding a reference to the Activity after
+    // it's destroyed — applicationContext lives as long as the app.
+    private lateinit var diceRepository: DicePreferencesRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        diceRepository = DicePreferencesRepository(applicationContext)
+
         setContent {
             LoMPTheme {
-                LoMPApp()
+                LoMPApp(diceRepository = diceRepository)
             }
         }
     }
 }
 
 @Composable
-fun LoMPApp() {
+fun LoMPApp(diceRepository: DicePreferencesRepository) {
     val navController = rememberNavController()
     val tabs = listOf(Screen.Dice, Screen.Oracle)
 
@@ -85,8 +96,12 @@ fun LoMPApp() {
             startDestination = Screen.Dice.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Dice.route) { DiceScreen() }
-            composable(Screen.Oracle.route) { OracleScreen() }
+            composable(Screen.Dice.route) {
+                DiceScreen(diceRepository = diceRepository)
+            }
+            composable(Screen.Oracle.route) {
+                OracleScreen()
+            }
         }
     }
 }
