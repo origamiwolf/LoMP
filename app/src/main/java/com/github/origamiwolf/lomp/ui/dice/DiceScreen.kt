@@ -1,8 +1,7 @@
-
 package com.github.origamiwolf.lomp.ui.dice
-import com.github.origamiwolf.lomp.data.DicePreferencesRepository
-import androidx.lifecycle.viewmodel.compose.viewModel
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -21,13 +20,20 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.github.origamiwolf.lomp.data.DiceComboRepository
+import com.github.origamiwolf.lomp.data.DicePreferencesRepository
+import com.github.origamiwolf.lomp.data.model.DiceCombo
 import com.github.origamiwolf.lomp.data.model.DiceHistoryEntry
 
 @Composable
 fun DiceScreen(
-    diceRepository: DicePreferencesRepository,
+    dicePreferencesRepository: DicePreferencesRepository,
+    diceComboRepository: DiceComboRepository,
     viewModel: DiceViewModel = viewModel(
-        factory = DiceViewModel.Factory(diceRepository)
+        factory = DiceViewModel.Factory(
+            dicePreferencesRepository,
+            diceComboRepository
+        )
     )
 ) {
     val expression by viewModel.expression.collectAsState()
@@ -35,9 +41,11 @@ fun DiceScreen(
     val error by viewModel.error.collectAsState()
     val history by viewModel.history.collectAsState()
     val orderedDice by viewModel.orderedDice.collectAsState()
+    val savedCombos by viewModel.savedCombos.collectAsState()
+    val showSaveDialog by viewModel.showSaveDialog.collectAsState()
+    val duplicateCombo by viewModel.duplicateCombo.collectAsState()
+    val comboToDelete by viewModel.comboToDelete.collectAsState()
 
-    // Single vertical scroll for the whole screen
-    // This way history is accessible by scrolling down naturally
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -45,7 +53,6 @@ fun DiceScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-
         Text(
             text = "Dice Roller",
             fontSize = 24.sp,
@@ -53,9 +60,6 @@ fun DiceScreen(
         )
 
         // ── Quick Roll Row ──────────────────────────────────────────
-        // Horizontally scrollable row of standard dice buttons
-        // Ordered by usage frequency, most used first
-
         Text(
             text = "Quick Roll",
             fontSize = 14.sp,
@@ -71,7 +75,10 @@ fun DiceScreen(
             orderedDice.forEach { sides ->
                 OutlinedButton(
                     onClick = { viewModel.rollQuickDie(sides) },
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    contentPadding = PaddingValues(
+                        horizontal = 12.dp,
+                        vertical = 6.dp
+                    )
                 ) {
                     Text("d$sides", fontSize = 14.sp)
                 }
@@ -81,7 +88,6 @@ fun DiceScreen(
         HorizontalDivider()
 
         // ── Custom Expression ───────────────────────────────────────
-
         Text(
             text = "Custom Roll",
             fontSize = 14.sp,
@@ -117,16 +123,52 @@ fun DiceScreen(
             )
         )
 
-        Button(
-            onClick = { viewModel.roll() },
-            modifier = Modifier.fillMaxWidth()
+        // Roll and Save buttons side by side
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("Roll", fontSize = 18.sp)
+            Button(
+                onClick = { viewModel.roll() },
+                modifier = Modifier.weight(3f)
+            ) {
+                Text("Roll", fontSize = 18.sp)
+            }
+            OutlinedButton(
+                onClick = { viewModel.requestSaveCombo() },
+                modifier = Modifier.weight(2f)
+            ) {
+                Text("Save", fontSize = 18.sp)
+            }
+        }
+
+        // ── Saved Combinations ──────────────────────────────────────
+        if (savedCombos.isNotEmpty()) {
+            HorizontalDivider()
+
+            Text(
+                text = "Saved Combinations",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                savedCombos.forEach { combo ->
+                    SavedComboButton(
+                        combo = combo,
+                        onClick = { viewModel.loadCombo(combo) },
+                        onLongClick = { viewModel.requestDeleteCombo(combo) }
+                    )
+                }
+            }
         }
 
         // ── Current Result ──────────────────────────────────────────
-        // Only shown after a roll has been made
-
         if (result != null) {
             HorizontalDivider()
 
@@ -139,17 +181,17 @@ fun DiceScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
                         text = "TOTAL",
-                        fontSize = 14.sp,
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
                         text = "${result!!.historyEntry.total}",
-                        fontSize = 48.sp,
+                        fontSize = 36.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -162,7 +204,6 @@ fun DiceScreen(
                 fontWeight = FontWeight.SemiBold
             )
 
-            // Breakdown lines - not lazy since max ~5 lines
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 result!!.breakdown.forEach { line ->
                     Text(text = line, fontSize = 14.sp)
@@ -171,8 +212,6 @@ fun DiceScreen(
         }
 
         // ── Roll History ────────────────────────────────────────────
-        // Always visible once at least one roll has been made
-
         if (history.isNotEmpty()) {
             HorizontalDivider()
 
@@ -189,17 +228,140 @@ fun DiceScreen(
             }
         }
 
-        // Bottom padding so last history item isn't flush against
-        // the navigation bar
         Spacer(modifier = Modifier.height(8.dp))
+    }
+
+    // ── Dialogs ─────────────────────────────────────────────────────
+    if (showSaveDialog) {
+        SaveComboDialog(
+            duplicateCombo = duplicateCombo,
+            onConfirmSave = { name -> viewModel.confirmSave(name) },
+            onConfirmOverwrite = { viewModel.confirmOverwrite() },
+            onDismiss = { viewModel.dismissSaveDialog() }
+        )
+    }
+
+    if (comboToDelete != null) {
+        DeleteComboDialog(
+            combo = comboToDelete!!,
+            onConfirm = { viewModel.confirmDeleteCombo() },
+            onDismiss = { viewModel.dismissDeleteDialog() }
+        )
     }
 }
 
-/**
- * A single row in the history list.
- * Formats the entry using the parser's formatting function
- * so display logic stays out of the UI layer.
- */
+// ── Supporting Composables ───────────────────────────────────────────
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun SavedComboButton(
+    combo: DiceCombo,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        border = ButtonDefaults.outlinedButtonBorder(enabled = true),
+        modifier = Modifier.combinedClickable(
+            onClick = onClick,
+            onLongClick = onLongClick
+        )
+    ) {
+        Text(
+            text = combo.name,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+        )
+    }
+}
+
+@Composable
+fun SaveComboDialog(
+    duplicateCombo: DiceCombo?,
+    onConfirmSave: (String) -> Unit,
+    onConfirmOverwrite: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var nameInput by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                if (duplicateCombo != null) "Name Already Exists"
+                else "Save Combination"
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (duplicateCombo != null) {
+                    Text(
+                        "A combination named \"${duplicateCombo.name}\" already " +
+                                "exists with expression \"${duplicateCombo.expression}\". " +
+                                "Do you want to overwrite it?"
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = nameInput,
+                        onValueChange = { nameInput = it },
+                        label = { Text("Name") },
+                        placeholder = { Text("e.g. Attack Roll") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (duplicateCombo != null) {
+                        onConfirmOverwrite()
+                    } else {
+                        onConfirmSave(nameInput)
+                    }
+                },
+                enabled = duplicateCombo != null || nameInput.isNotBlank()
+            ) {
+                Text(if (duplicateCombo != null) "Overwrite" else "Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun DeleteComboDialog(
+    combo: DiceCombo,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete Combination") },
+        text = {
+            Text(
+                "Delete \"${combo.name}\" (${combo.expression})? " +
+                        "This cannot be undone."
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Delete", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
 @Composable
 fun HistoryRow(entry: DiceHistoryEntry) {
     Text(

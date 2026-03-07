@@ -9,18 +9,19 @@ import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.github.origamiwolf.lomp.data.DiceComboRepository
 import com.github.origamiwolf.lomp.data.DicePreferencesRepository
 import com.github.origamiwolf.lomp.ui.dice.DiceScreen
 import com.github.origamiwolf.lomp.ui.oracle.OracleScreen
 import com.github.origamiwolf.lomp.ui.theme.LoMPTheme
-import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.padding
 
 sealed class Screen(val route: String, val label: String) {
     object Dice : Screen("dice", "Dice")
@@ -29,27 +30,31 @@ sealed class Screen(val route: String, val label: String) {
 
 class MainActivity : ComponentActivity() {
 
-    // Created once for the lifetime of the Activity.
-    // applicationContext is used rather than 'this' to avoid
-    // accidentally holding a reference to the Activity after
-    // it's destroyed — applicationContext lives as long as the app.
-    private lateinit var diceRepository: DicePreferencesRepository
+    private lateinit var dicePreferencesRepository: DicePreferencesRepository
+    private lateinit var diceComboRepository: DiceComboRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        diceRepository = DicePreferencesRepository(applicationContext)
+        dicePreferencesRepository = DicePreferencesRepository(applicationContext)
+        diceComboRepository = DiceComboRepository(applicationContext)
 
         setContent {
             LoMPTheme {
-                LoMPApp(diceRepository = diceRepository)
+                LoMPApp(
+                    dicePreferencesRepository = dicePreferencesRepository,
+                    diceComboRepository = diceComboRepository
+                )
             }
         }
     }
 }
 
 @Composable
-fun LoMPApp(diceRepository: DicePreferencesRepository) {
+fun LoMPApp(
+    dicePreferencesRepository: DicePreferencesRepository,
+    diceComboRepository: DiceComboRepository
+) {
     val navController = rememberNavController()
     val tabs = listOf(Screen.Dice, Screen.Oracle)
 
@@ -97,7 +102,10 @@ fun LoMPApp(diceRepository: DicePreferencesRepository) {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Dice.route) {
-                DiceScreen(diceRepository = diceRepository)
+                DiceScreen(
+                    dicePreferencesRepository = dicePreferencesRepository,
+                    diceComboRepository = diceComboRepository
+                )
             }
             composable(Screen.Oracle.route) {
                 OracleScreen()
