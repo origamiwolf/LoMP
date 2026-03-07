@@ -22,6 +22,7 @@ import com.github.origamiwolf.lomp.data.DicePreferencesRepository
 import com.github.origamiwolf.lomp.ui.dice.DiceScreen
 import com.github.origamiwolf.lomp.ui.oracle.OracleScreen
 import com.github.origamiwolf.lomp.ui.theme.LoMPTheme
+import com.github.origamiwolf.lomp.data.OracleRepository
 
 sealed class Screen(val route: String, val label: String) {
     object Dice : Screen("dice", "Dice")
@@ -32,18 +33,21 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var dicePreferencesRepository: DicePreferencesRepository
     private lateinit var diceComboRepository: DiceComboRepository
+    private lateinit var oracleRepository: OracleRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         dicePreferencesRepository = DicePreferencesRepository(applicationContext)
         diceComboRepository = DiceComboRepository(applicationContext)
+        oracleRepository = OracleRepository(applicationContext)
 
         setContent {
             LoMPTheme {
                 LoMPApp(
                     dicePreferencesRepository = dicePreferencesRepository,
-                    diceComboRepository = diceComboRepository
+                    diceComboRepository = diceComboRepository,
+                    oracleRepository = oracleRepository
                 )
             }
         }
@@ -53,7 +57,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun LoMPApp(
     dicePreferencesRepository: DicePreferencesRepository,
-    diceComboRepository: DiceComboRepository
+    diceComboRepository: DiceComboRepository,
+    oracleRepository: OracleRepository
 ) {
     val navController = rememberNavController()
     val tabs = listOf(Screen.Dice, Screen.Oracle)
@@ -108,7 +113,7 @@ fun LoMPApp(
                 )
             }
             composable(Screen.Oracle.route) {
-                OracleScreen()
+                OracleScreen(oracleRepository = oracleRepository)
             }
         }
     }

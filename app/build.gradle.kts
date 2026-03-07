@@ -91,8 +91,5 @@ dependencies {
 // DataStore
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
-// Room
-    implementation(libs.room.runtime)
-    implementation(libs.room.ktx)
-    annotationProcessor(libs.room.compiler)
+    implementation("androidx.documentfile:documentfile:1.0.1")
 }
