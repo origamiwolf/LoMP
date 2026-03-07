@@ -96,6 +96,26 @@ class DiceComboRepository(private val context: Context) {
         }
     }
 
+    /**
+     * Export all combinations as a JSON string.
+     * The caller is responsible for writing this to a file.
+     */
+    suspend fun exportCombos(): String {
+        val combos = getCurrentCombos()
+        return json.encodeToString(combos)
+    }
+
+    /**
+     * Import combinations from a JSON string, completely replacing
+     * any existing combinations.
+     * Returns the number of combinations imported, or throws on parse error.
+     */
+    suspend fun importCombos(jsonString: String): Int {
+        val combos = json.decodeFromString<List<DiceCombo>>(jsonString)
+        saveCombos(combos)
+        return combos.size
+    }
+
     // --- Private helpers ---
 
     /**

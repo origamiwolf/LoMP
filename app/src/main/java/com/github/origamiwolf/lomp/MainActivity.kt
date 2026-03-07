@@ -6,9 +6,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Casino
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -19,14 +19,16 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.github.origamiwolf.lomp.data.DiceComboRepository
 import com.github.origamiwolf.lomp.data.DicePreferencesRepository
+import com.github.origamiwolf.lomp.data.OracleRepository
 import com.github.origamiwolf.lomp.ui.dice.DiceScreen
 import com.github.origamiwolf.lomp.ui.oracle.OracleScreen
+import com.github.origamiwolf.lomp.ui.settings.SettingsScreen
 import com.github.origamiwolf.lomp.ui.theme.LoMPTheme
-import com.github.origamiwolf.lomp.data.OracleRepository
 
 sealed class Screen(val route: String, val label: String) {
     object Dice : Screen("dice", "Dice")
     object Oracle : Screen("oracle", "Oracle")
+    object Settings : Screen("settings", "Settings")
 }
 
 class MainActivity : ComponentActivity() {
@@ -54,6 +56,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoMPApp(
     dicePreferencesRepository: DicePreferencesRepository,
@@ -62,41 +65,73 @@ fun LoMPApp(
 ) {
     val navController = rememberNavController()
     val tabs = listOf(Screen.Dice, Screen.Oracle)
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
+    val currentRoute = currentDestination?.route
 
     Scaffold(
-        bottomBar = {
-            NavigationBar {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = navBackStackEntry?.destination
-
-                tabs.forEach { screen ->
-                    NavigationBarItem(
-                        icon = {
-                            when (screen) {
-                                Screen.Dice -> Icon(
-                                    Icons.Default.Casino,
-                                    contentDescription = screen.label
-                                )
-                                Screen.Oracle -> Icon(
-                                    Icons.Default.AutoAwesome,
-                                    contentDescription = screen.label
-                                )
-                            }
-                        },
-                        label = { Text(screen.label) },
-                        selected = currentDestination?.hierarchy?.any {
-                            it.route == screen.route
-                        } == true,
+        topBar = {
+            TopAppBar(
+                title = { Text("LoMP") },
+                actions = {
+                    IconButton(
                         onClick = {
-                            navController.navigate(screen.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                            if (currentRoute != Screen.Settings.route) {
+                                navController.navigate(Screen.Settings.route) {
+                                    launchSingleTop = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
                             }
                         }
-                    )
+                    ) {
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = "Settings"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            )
+        },
+        bottomBar = {
+            // Hide bottom bar on settings screen
+            if (currentRoute != Screen.Settings.route) {
+                NavigationBar {
+                    tabs.forEach { screen ->
+                        NavigationBarItem(
+                            icon = {
+                                when (screen) {
+                                    Screen.Dice -> Icon(
+                                        Icons.Default.Casino,
+                                        contentDescription = screen.label
+                                    )
+                                    Screen.Oracle -> Icon(
+                                        Icons.Default.AutoAwesome,
+                                        contentDescription = screen.label
+                                    )
+                                    else -> {}
+                                }
+                            },
+                            label = { Text(screen.label) },
+                            selected = currentDestination?.hierarchy?.any {
+                                it.route == screen.route
+                            } == true,
+                            onClick = {
+                                navController.navigate(screen.route) {
+                                    popUpTo(
+                                        navController.graph.findStartDestination().id
+                                    ) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -114,6 +149,9 @@ fun LoMPApp(
             }
             composable(Screen.Oracle.route) {
                 OracleScreen(oracleRepository = oracleRepository)
+            }
+            composable(Screen.Settings.route) {
+                SettingsScreen(diceComboRepository = diceComboRepository)
             }
         }
     }
