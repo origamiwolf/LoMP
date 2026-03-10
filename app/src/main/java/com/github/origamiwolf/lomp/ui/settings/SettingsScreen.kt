@@ -30,6 +30,7 @@ fun SettingsScreen(
     val exportState by viewModel.exportState.collectAsState()
     val importState by viewModel.importState.collectAsState()
     val showImportWarning by viewModel.showImportWarning.collectAsState()
+    val hasAnyCombos by viewModel.hasAnyCombos.collectAsState()
 
     // File creator — opens save dialog letting user pick location and filename
     val fileSaver = rememberLauncherForActivityResult(
@@ -92,7 +93,7 @@ fun SettingsScreen(
         OutlinedButton(
             onClick = { viewModel.exportCombos() },
             modifier = Modifier.fillMaxWidth(),
-            enabled = exportState !is SettingsViewModel.ExportState.Loading
+            enabled = hasAnyCombos && exportState !is SettingsViewModel.ExportState.Loading
         ) {
             Icon(
                 Icons.Default.FileUpload,
@@ -109,6 +110,14 @@ fun SettingsScreen(
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        if (!hasAnyCombos) {
+            Text(
+                text = "No saved combinations to export yet.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
         OutlinedButton(
             onClick = { filePicker.launch(arrayOf("application/json")) },

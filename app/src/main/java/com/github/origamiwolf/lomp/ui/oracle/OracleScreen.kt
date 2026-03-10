@@ -156,12 +156,17 @@ fun OracleScreen(
                     }
                 }
             }
-        } else if (folderUri != null && !isLoading) {
-            Text(
-                text = "No valid tables found in this folder",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        } else if (!isLoading) {
+            if (folderUri == null) {
+                EmptyStateHint(
+                    text = "Tap Select Folder to load your oracle tables."
+                )
+            } else {
+                EmptyStateHint(
+                    text = "No valid tables found in this folder. " +
+                            "Check the verification panel for details."
+                )
+            }
         }
 
         // ── Roll Result ─────────────────────────────────────────────
@@ -414,4 +419,14 @@ fun RollOutputDisplay(output: OracleRollOutput) {
             }
         }
     }
+}
+
+@Composable
+fun EmptyStateHint(text: String) {
+    Text(
+        text = text,
+        fontSize = 13.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(vertical = 4.dp)
+    )
 }

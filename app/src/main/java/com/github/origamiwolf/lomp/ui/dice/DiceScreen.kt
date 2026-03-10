@@ -142,10 +142,17 @@ fun DiceScreen(
             }
         }
 
-        // ── Saved Combinations ──────────────────────────────────────
-        if (savedCombos.isNotEmpty()) {
-            HorizontalDivider()
+        // ── Saved Combinations ──────────────────────────────────────────
+        HorizontalDivider()
 
+        if (savedCombos.isEmpty()) {
+            Text(
+                text = "No saved combinations yet. Roll an expression and tap Save to add one.",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+        } else {
             Text(
                 text = "Saved Combinations",
                 fontSize = 14.sp,

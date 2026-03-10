@@ -16,6 +16,15 @@ class SettingsViewModel(
     private val comboRepository: DiceComboRepository
 ) : ViewModel() {
 
+    // --- Combo count for export button ---
+    val hasAnyCombos: StateFlow<Boolean> = MutableStateFlow(false).also { flow ->
+        viewModelScope.launch {
+            comboRepository.allCombos.collect { combos ->
+                (flow as MutableStateFlow).value = combos.isNotEmpty()
+            }
+        }
+    }
+
     // --- Export state ---
     private val _exportState = MutableStateFlow<ExportState>(ExportState.Idle)
     val exportState: StateFlow<ExportState> = _exportState.asStateFlow()
