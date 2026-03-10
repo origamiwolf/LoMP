@@ -3,17 +3,22 @@ package com.github.origamiwolf.lomp.ui.settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.github.origamiwolf.lomp.BuildConfig
 import com.github.origamiwolf.lomp.data.DiceComboRepository
 
 @Composable
@@ -31,8 +36,8 @@ fun SettingsScreen(
     val importState by viewModel.importState.collectAsState()
     val showImportWarning by viewModel.showImportWarning.collectAsState()
     val hasAnyCombos by viewModel.hasAnyCombos.collectAsState()
+    val uriHandler = LocalUriHandler.current
 
-    // File creator — opens save dialog letting user pick location and filename
     val fileSaver = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
@@ -50,19 +55,16 @@ fun SettingsScreen(
                 }
             }
         } else {
-            // User cancelled — go back to idle
             viewModel.onExportHandled()
         }
     }
 
-    // Launch file saver when export is ready
     LaunchedEffect(exportState) {
         if (exportState is SettingsViewModel.ExportState.ReadyToSave) {
             fileSaver.launch("lomp_dice_combos.json")
         }
     }
 
-    // File picker for import
     val filePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -72,6 +74,7 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -83,6 +86,7 @@ fun SettingsScreen(
 
         HorizontalDivider()
 
+        // ── Dice Combinations ───────────────────────────────────────
         Text(
             text = "Dice Combinations",
             fontSize = 16.sp,
@@ -93,7 +97,8 @@ fun SettingsScreen(
         OutlinedButton(
             onClick = { viewModel.exportCombos() },
             modifier = Modifier.fillMaxWidth(),
-            enabled = hasAnyCombos && exportState !is SettingsViewModel.ExportState.Loading
+            enabled = hasAnyCombos &&
+                    exportState !is SettingsViewModel.ExportState.Loading
         ) {
             Icon(
                 Icons.Default.FileUpload,
@@ -176,9 +181,52 @@ fun SettingsScreen(
             }
             else -> {}
         }
+
+        // ── About ───────────────────────────────────────────────────
+        HorizontalDivider()
+
+        Text(
+            text = "About",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(text = "Version", fontSize = 14.sp)
+            Text(
+                text = BuildConfig.VERSION_NAME,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "Source Code", fontSize = 14.sp)
+            TextButton(
+                onClick = {
+                    uriHandler.openUri("https://github.com/origamiwolf/lomp")
+                },
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Text(
+                    text = "github.com/origamiwolf/lomp",
+                    fontSize = 14.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
     }
 
-    // Import warning dialog
+    // ── Import Warning Dialog ────────────────────────────────────────
     if (showImportWarning) {
         AlertDialog(
             onDismissRequest = { viewModel.dismissImportWarning() },
