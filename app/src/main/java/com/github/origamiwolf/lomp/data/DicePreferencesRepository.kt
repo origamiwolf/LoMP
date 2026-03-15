@@ -14,6 +14,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
 import com.github.origamiwolf.lomp.data.model.oracle.OracleHistoryEntry
 import kotlinx.serialization.builtins.ListSerializer
+import com.github.origamiwolf.lomp.data.model.oracle.OracleNode
 
 // This creates a single DataStore instance tied to the application context.
 // The delegate pattern here means Context.dataStore is available anywhere
@@ -35,6 +36,7 @@ class DicePreferencesRepository(private val context: Context) {
         private val DICE_HISTORY_KEY = stringPreferencesKey("dice_history")
         // Add to companion object
         private val ORACLE_HISTORY_KEY = stringPreferencesKey("oracle_history")
+        private val ORACLE_NODE_CACHE_KEY = stringPreferencesKey("oracle_node_cache")
     }
 
     // A configured Json instance.
@@ -137,12 +139,56 @@ class DicePreferencesRepository(private val context: Context) {
             }
         }
 
+    val oracleNodeCacheFlow: Flow<List<OracleNode>> = context.dataStore.data
+        .map { preferences ->
+            val raw = preferences[ORACLE_NODE_CACHE_KEY]
+            if (raw == null) {
+                emptyList()
+            } else {
+                try {
+                    Json.decodeFromString(
+                        ListSerializer(OracleNode.serializer()),
+                        raw
+                    )
+                } catch (e: Exception) {
+                    emptyList()
+                }
+            }
+        }
+
+    suspend fun saveOracleNodeCache(nodes: List<OracleNode>) {
+        context.dataStore.edit { preferences ->
+            preferences[ORACLE_NODE_CACHE_KEY] = Json.encodeToString(
+                ListSerializer(OracleNode.serializer()),
+                nodes
+            )
+        }
+    }
+
+    suspend fun clearOracleNodeCache() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(ORACLE_NODE_CACHE_KEY)
+        }
+    }
+
     suspend fun saveOracleHistory(history: List<OracleHistoryEntry>) {
         context.dataStore.edit { preferences ->
             preferences[ORACLE_HISTORY_KEY] = Json.encodeToString(
                 ListSerializer(OracleHistoryEntry.serializer()),
                 history
             )
+        }
+    }
+
+    suspend fun clearOracleHistory() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(ORACLE_HISTORY_KEY)
+        }
+    }
+
+    suspend fun clearHistory() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(DICE_HISTORY_KEY)
         }
     }
 

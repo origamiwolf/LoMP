@@ -222,11 +222,27 @@ fun DiceScreen(
         if (history.isNotEmpty()) {
             HorizontalDivider()
 
-            Text(
-                text = "Last ${history.size} Rolls",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Last ${history.size} Rolls",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                TextButton(
+                    onClick = { viewModel.clearHistory() },
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text(
+                        text = "Clear",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
 
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 history.forEach { entry ->

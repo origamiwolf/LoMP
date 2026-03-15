@@ -5,28 +5,31 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.github.origamiwolf.lomp.data.DicePreferencesRepository
 import com.github.origamiwolf.lomp.data.OracleRepository
+import com.github.origamiwolf.lomp.data.model.oracle.OracleHistoryEntry
+import com.github.origamiwolf.lomp.data.model.oracle.OracleHistoryResult
 import com.github.origamiwolf.lomp.data.model.oracle.OracleNode
 import com.github.origamiwolf.lomp.data.model.oracle.OracleRollOutput
+import com.github.origamiwolf.lomp.oracle.NameRoller
 import com.github.origamiwolf.lomp.oracle.OracleRoller
 import com.github.origamiwolf.lomp.oracle.OracleTableLoader
 import com.github.origamiwolf.lomp.oracle.OracleTableVerifier
-import com.github.origamiwolf.lomp.oracle.NameRoller
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.github.origamiwolf.lomp.data.DicePreferencesRepository
-import com.github.origamiwolf.lomp.data.model.oracle.OracleHistoryEntry
-import com.github.origamiwolf.lomp.data.model.oracle.OracleHistoryResult
 
 class OracleViewModel(
-    private val context: Context,
+    application: android.app.Application,
     private val repository: OracleRepository,
     private val preferencesRepository: DicePreferencesRepository
-) : ViewModel() {
+) : androidx.lifecycle.AndroidViewModel(application) {
+
+    private val context = getApplication<android.app.Application>()
 
     // --- Folder URI ---
     private val _folderUri = MutableStateFlow<Uri?>(null)
@@ -40,20 +43,15 @@ class OracleViewModel(
     private var rootNodes: List<OracleNode> = emptyList()
 
     // --- Current navigation stack ---
-    // Each entry is a Pair of (folder name, folder's children)
-    // Empty stack means we're at root
     private val _navigationStack = MutableStateFlow<List<Pair<String, List<OracleNode>>>>(
         emptyList()
     )
 
     // --- Current visible nodes ---
-    // What's shown in the UI right now
     private val _currentNodes = MutableStateFlow<List<OracleNode>>(emptyList())
     val currentNodes: StateFlow<List<OracleNode>> = _currentNodes.asStateFlow()
 
     // --- Breadcrumb path ---
-    // List of folder names from root to current location
-    // Empty list means we're at root
     private val _breadcrumbs = MutableStateFlow<List<String>>(emptyList())
     val breadcrumbs: StateFlow<List<String>> = _breadcrumbs.asStateFlow()
 
@@ -76,11 +74,17 @@ class OracleViewModel(
 
     init {
         viewModelScope.launch {
-            repository.folderUriFlow.collect { uri ->
-                _folderUri.value = uri
-                if (uri != null && _currentNodes.value.isEmpty()) {
-                    loadTables(uri)
-                }
+            // Load folder URI
+            val uri = preferencesRepository.run {
+                repository.folderUriFlow.first()
+            }
+            _folderUri.value = uri
+
+            // Load from cache first — instant, no file IO
+            val cached = preferencesRepository.oracleNodeCacheFlow.first()
+            if (cached.isNotEmpty()) {
+                rootNodes = cached
+                _currentNodes.value = rootNodes
             }
         }
         viewModelScope.launch {
@@ -92,40 +96,33 @@ class OracleViewModel(
 
     // --- Folder selection ---
 
+    /**
+     * Called when user selects a new folder.
+     * Scans the folder, updates cache, updates UI.
+     */
     fun onFolderSelected(uri: Uri) {
         viewModelScope.launch {
             repository.saveFolderUri(uri)
-            loadTables(uri)
+            _folderUri.value = uri
+            scanFolderAndUpdateCache(uri)
         }
     }
 
+    /**
+     * Explicit reload — rescans the folder, updates cache, updates UI.
+     * Only available when a folder URI is known.
+     */
     fun reloadTables() {
         val uri = _folderUri.value ?: return
         viewModelScope.launch {
-            loadTables(uri)
+            scanFolderAndUpdateCache(uri)
         }
     }
 
-    private fun persistOracleResult(output: OracleRollOutput) {
-        val entry = OracleHistoryEntry(
-            tableName = output.tableName,
-            results = output.results.map { result ->
-                OracleHistoryResult(
-                    rolls = result.rolls,
-                    text = result.text
-                )
-            }
-        )
-        val updated = (_oracleHistory.value.toMutableList().also {
-            it.add(0, entry)
-        }).take(10)
-        _oracleHistory.value = updated
-        viewModelScope.launch {
-            preferencesRepository.saveOracleHistory(updated)
-        }
-    }
-
-    private suspend fun loadTables(uri: Uri) {
+    /**
+     * Scan the folder from disk, verify tables, update cache and UI.
+     */
+    private suspend fun scanFolderAndUpdateCache(uri: Uri) {
         _isLoading.value = true
         _navigationStack.value = emptyList()
         _breadcrumbs.value = emptyList()
@@ -139,6 +136,9 @@ class OracleViewModel(
         _currentNodes.value = rootNodes
         _verificationResults.value = result.verificationResults
 
+        // Save to cache for next app open
+        preferencesRepository.saveOracleNodeCache(rootNodes)
+
         val hasIssues = result.verificationResults.any {
             it.errors.isNotEmpty() || it.warnings.isNotEmpty()
         }
@@ -148,11 +148,6 @@ class OracleViewModel(
 
     // --- Navigation ---
 
-    /**
-     * Navigate into a folder.
-     * Pushes the folder onto the navigation stack and
-     * updates currentNodes to show the folder's children.
-     */
     fun navigateIntoFolder(folder: OracleNode.Folder) {
         val newStack = _navigationStack.value + Pair(folder.name, folder.children)
         _navigationStack.value = newStack
@@ -161,11 +156,6 @@ class OracleViewModel(
         _rollOutput.value = null
     }
 
-    /**
-     * Navigate to a specific breadcrumb index.
-     * Index -1 means root.
-     * Index 0 means first folder in the stack, etc.
-     */
     fun navigateToBreadcrumb(index: Int) {
         if (index == -1) {
             _navigationStack.value = emptyList()
@@ -194,6 +184,34 @@ class OracleViewModel(
         persistOracleResult(output)
     }
 
+    // --- History ---
+
+    private fun persistOracleResult(output: OracleRollOutput) {
+        val entry = OracleHistoryEntry(
+            tableName = output.tableName,
+            results = output.results.map { result ->
+                OracleHistoryResult(
+                    rolls = result.rolls,
+                    text = result.text
+                )
+            }
+        )
+        val updated = (_oracleHistory.value.toMutableList().also {
+            it.add(0, entry)
+        }).take(10)
+        _oracleHistory.value = updated
+        viewModelScope.launch {
+            preferencesRepository.saveOracleHistory(updated)
+        }
+    }
+
+    fun clearOracleHistory() {
+        viewModelScope.launch {
+            preferencesRepository.clearOracleHistory()
+            _oracleHistory.value = emptyList()
+        }
+    }
+
     // --- Error panel ---
 
     fun dismissErrorPanel() {
@@ -207,13 +225,13 @@ class OracleViewModel(
     // --- Factory ---
 
     class Factory(
-        private val context: Context,
+        private val application: android.app.Application,
         private val repository: OracleRepository,
         private val preferencesRepository: DicePreferencesRepository
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             @Suppress("UNCHECKED_CAST")
-            return OracleViewModel(context, repository, preferencesRepository) as T
+            return OracleViewModel(application, repository, preferencesRepository) as T
         }
     }
 }

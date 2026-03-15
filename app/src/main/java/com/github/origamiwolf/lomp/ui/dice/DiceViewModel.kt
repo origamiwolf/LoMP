@@ -198,6 +198,13 @@ class DiceViewModel(
         }
     }
 
+    fun clearHistory() {
+        viewModelScope.launch {
+            preferencesRepository.clearHistory()
+            _history.value = emptyList()
+        }
+    }
+
     // --- Factory ---
 
     class Factory(

@@ -35,7 +35,7 @@ fun OracleScreen(
     dicePreferencesRepository: DicePreferencesRepository,
     viewModel: OracleViewModel = viewModel(
         factory = OracleViewModel.Factory(
-            LocalContext.current.applicationContext,
+            LocalContext.current.applicationContext as android.app.Application,
             oracleRepository,
             dicePreferencesRepository
         )
@@ -191,11 +191,27 @@ fun OracleScreen(
         if (oracleHistory.isNotEmpty()) {
             HorizontalDivider()
 
-            Text(
-                text = "Last ${oracleHistory.size} Rolls",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Last ${oracleHistory.size} Rolls",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                TextButton(
+                    onClick = { viewModel.clearOracleHistory() },
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text(
+                        text = "Clear",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
 
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 oracleHistory.forEach { entry ->
