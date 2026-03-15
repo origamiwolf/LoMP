@@ -1,5 +1,8 @@
 package com.github.origamiwolf.lomp.oracle
 
+import com.github.origamiwolf.lomp.data.model.oracle.NameEntry
+import com.github.origamiwolf.lomp.data.model.oracle.NamePart
+import com.github.origamiwolf.lomp.data.model.oracle.NameTable
 import com.github.origamiwolf.lomp.data.model.oracle.OracleEntry
 import com.github.origamiwolf.lomp.data.model.oracle.OracleResult
 import com.github.origamiwolf.lomp.data.model.oracle.OracleTable
@@ -14,6 +17,10 @@ object OracleTableVerifier {
     )
 
     private const val MAX_SUBTABLE_DEPTH = 5
+    private const val MIN_NAME_PARTS = 2
+    private const val MAX_NAME_PARTS = 4
+
+    // --- Oracle table verification (unchanged) ---
 
     fun verify(table: OracleTable, fileName: String): VerificationResult {
         val errors = mutableListOf<String>()
@@ -56,7 +63,6 @@ object OracleTableVerifier {
             )
             return
         }
-
         table.entries.forEachIndexed { index, entry ->
             verifyEntry(
                 entry,
@@ -66,7 +72,6 @@ object OracleTableVerifier {
                 warnings
             )
         }
-
         verifyCoverage(table, context, errors)
     }
 
@@ -85,7 +90,6 @@ object OracleTableVerifier {
         if (entry.minRoll <= 0) {
             errors.add("$context: minRoll must be >= 1")
         }
-
         when (val result = entry.result) {
             is OracleResult.SubTable -> {
                 val subTable = OracleTable(
@@ -119,14 +123,18 @@ object OracleTableVerifier {
         table.entries.forEach { entry ->
             for (roll in entry.minRoll..entry.maxRoll) {
                 if (roll in covered) {
-                    errors.add("$context: roll $roll is covered by multiple entries")
+                    errors.add(
+                        "$context: roll $roll is covered by multiple entries"
+                    )
                 }
                 covered.add(roll)
             }
         }
         for (roll in 1..table.totalSides) {
             if (roll !in covered) {
-                errors.add("$context: no entry covers roll $roll (gap in range)")
+                errors.add(
+                    "$context: no entry covers roll $roll (gap in range)"
+                )
             }
         }
         table.entries.forEach { entry ->
@@ -134,6 +142,114 @@ object OracleTableVerifier {
                 errors.add(
                     "$context: entry maxRoll (${entry.maxRoll}) " +
                             "exceeds totalSides (${table.totalSides})"
+                )
+            }
+        }
+    }
+
+    // --- Name table verification ---
+
+    fun verifyNameTable(table: NameTable, fileName: String): VerificationResult {
+        val errors = mutableListOf<String>()
+        val warnings = mutableListOf<String>()
+
+        if (table.name.isBlank()) {
+            errors.add("$fileName: table name is blank")
+        }
+
+        if (table.parts.size < MIN_NAME_PARTS) {
+            errors.add(
+                "$fileName: name table must have at least $MIN_NAME_PARTS parts " +
+                        "(has ${table.parts.size})"
+            )
+        }
+
+        if (table.parts.size > MAX_NAME_PARTS) {
+            errors.add(
+                "$fileName: name table must have at most $MAX_NAME_PARTS parts " +
+                        "(has ${table.parts.size})"
+            )
+        }
+
+        table.parts.forEachIndexed { index, part ->
+            verifyNamePart(part, "$fileName part ${index + 1} '${part.name}'", errors)
+        }
+
+        return VerificationResult(
+            fileName = fileName,
+            isValid = errors.isEmpty(),
+            errors = errors,
+            warnings = warnings
+        )
+    }
+
+    private fun verifyNamePart(
+        part: NamePart,
+        context: String,
+        errors: MutableList<String>
+    ) {
+        if (part.name.isBlank()) {
+            errors.add("$context: part name is blank")
+        }
+        if (part.totalSides <= 0) {
+            errors.add("$context: totalSides must be greater than 0")
+        }
+        if (part.entries.isEmpty()) {
+            errors.add("$context: part has no entries")
+            return
+        }
+
+        // Check individual entries
+        part.entries.forEachIndexed { index, entry ->
+            verifyNameEntry(entry, "$context entry ${index + 1}", errors)
+        }
+
+        // Check coverage
+        verifyNamePartCoverage(part, context, errors)
+    }
+
+    private fun verifyNameEntry(
+        entry: NameEntry,
+        context: String,
+        errors: MutableList<String>
+    ) {
+        if (entry.minRoll > entry.maxRoll) {
+            errors.add(
+                "$context: minRoll (${entry.minRoll}) > maxRoll (${entry.maxRoll})"
+            )
+        }
+        if (entry.minRoll <= 0) {
+            errors.add("$context: minRoll must be >= 1")
+        }
+        if (entry.text.isBlank()) {
+            errors.add("$context: text is blank")
+        }
+    }
+
+    private fun verifyNamePartCoverage(
+        part: NamePart,
+        context: String,
+        errors: MutableList<String>
+    ) {
+        val covered = mutableSetOf<Int>()
+        part.entries.forEach { entry ->
+            for (roll in entry.minRoll..entry.maxRoll) {
+                if (roll in covered) {
+                    errors.add("$context: roll $roll is covered by multiple entries")
+                }
+                covered.add(roll)
+            }
+        }
+        for (roll in 1..part.totalSides) {
+            if (roll !in covered) {
+                errors.add("$context: no entry covers roll $roll (gap in range)")
+            }
+        }
+        part.entries.forEach { entry ->
+            if (entry.maxRoll > part.totalSides) {
+                errors.add(
+                    "$context: entry maxRoll (${entry.maxRoll}) " +
+                            "exceeds totalSides (${part.totalSides})"
                 )
             }
         }

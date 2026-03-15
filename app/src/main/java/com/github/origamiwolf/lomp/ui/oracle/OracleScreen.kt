@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Casino
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -153,6 +154,10 @@ fun OracleScreen(
                             table = node,
                             onClick = { viewModel.rollOnTable(node) }
                         )
+                        is OracleNode.NameTable -> NameTableButton(
+                            table = node,
+                            onClick = { viewModel.rollOnNameTable(node) }
+                        )
                     }
                 }
             }
@@ -292,6 +297,39 @@ fun TableButton(
             text = "d${table.table.totalSides}",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+        )
+    }
+}
+
+@Composable
+fun NameTableButton(
+    table: OracleNode.NameTable,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+    ) {
+        Icon(
+            Icons.Default.Person,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = table.name,
+            fontSize = 15.sp,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = "${table.table.parts.size} parts",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
         )
     }
 }

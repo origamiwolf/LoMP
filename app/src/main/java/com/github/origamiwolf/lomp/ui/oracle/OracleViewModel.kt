@@ -11,6 +11,7 @@ import com.github.origamiwolf.lomp.data.model.oracle.OracleRollOutput
 import com.github.origamiwolf.lomp.oracle.OracleRoller
 import com.github.origamiwolf.lomp.oracle.OracleTableLoader
 import com.github.origamiwolf.lomp.oracle.OracleTableVerifier
+import com.github.origamiwolf.lomp.oracle.NameRoller
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -152,6 +153,10 @@ class OracleViewModel(
 
     fun rollOnTable(tableNode: OracleNode.Table) {
         _rollOutput.value = OracleRoller.roll(tableNode.table)
+    }
+
+    fun rollOnNameTable(tableNode: OracleNode.NameTable) {
+        _rollOutput.value = NameRoller.roll(tableNode.table)
     }
 
     // --- Error panel ---
