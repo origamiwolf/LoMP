@@ -52,6 +52,31 @@ Oracle tables are JSON files you create and organise into folders on your device
 In the Oracle tab, tap **Select Folder** to point LoMP at your tables folder.
 The folder structure on disk becomes the navigation structure in the app.
 
+### Example Folder Structure
+```
+LoMP Tables/
+├── yes_no.json
+├── fantasy/
+│   ├── encounters.json
+│   ├── npc_traits.json
+│   └── weather.json
+└── sci-fi/
+    ├── encounters.json
+    └── planets.json
+```
+
+### Verification
+
+When tables are loaded, LoMP checks each file for:
+- Valid JSON structure
+- Required fields present
+- No gaps or overlaps in roll ranges
+- Roll values within the valid range for `totalSides`
+- Blank result text
+
+Any errors or warnings are shown in a dismissible panel at the top of the Oracle tab.
+Only tables that pass all checks are loaded and available to roll on.
+
 ### JSON Format
 
 Each table is a single `.json` file with the following structure:
@@ -96,30 +121,106 @@ Each table is a single `.json` file with the following structure:
 - Subtable nesting beyond 2 levels will trigger a warning but will still load.
 - Roll-twice chains are capped at 10 total results.
 
-### Example Folder Structure
+### Name Generation Tables
+
+Name tables are a special table type that generates names by rolling independently
+on 2 to 4 named parts and joining the results with spaces.
+
+Each name category is its own `.json` file, distinguished from regular oracle tables
+by `"type": "name"` at the top level.
+
+### JSON Format
+```json
+{
+  "type": "name",
+  "name": "English Names",
+  "parts": [
+    {
+      "name": "firstname",
+      "totalSides": 6,
+      "entries": [
+        { "minRoll": 1, "maxRoll": 2, "text": "John" },
+        { "minRoll": 3, "maxRoll": 4, "text": "William" },
+        { "minRoll": 5, "maxRoll": 5, "text": "Elizabeth" },
+        { "minRoll": 6, "maxRoll": 6, "text": "Margaret" }
+      ]
+    },
+    {
+      "name": "lastname",
+      "totalSides": 6,
+      "entries": [
+        { "minRoll": 1, "maxRoll": 2, "text": "Smith" },
+        { "minRoll": 3, "maxRoll": 3, "text": "Blackwood" },
+        { "minRoll": 4, "maxRoll": 5, "text": "Fletcher" },
+        { "minRoll": 6, "maxRoll": 6, "text": "Canterbury" }
+      ]
+    }
+  ]
+}
 ```
-LoMP Tables/
-├── yes_no.json
-├── fantasy/
-│   ├── encounters.json
-│   ├── npc_traits.json
-│   └── weather.json
-└── sci-fi/
-    ├── encounters.json
-    └── planets.json
+
+### Rules
+- `"type": "name"` is required at the top level to distinguish name tables from
+  regular oracle tables. Regular oracle tables with no `type` field are loaded
+  normally without any changes needed.
+- Each table must have between 2 and 4 parts.
+- Parts are joined with a space in the order they appear in the `parts` array.
+- Each part follows the same weighted range rules as regular oracle tables —
+  every number from 1 to `totalSides` must be covered by exactly one entry,
+  with no gaps or overlaps.
+- Parts can have different `totalSides` values from each other.
+- There is no roll-twice or subtable support within name parts — each part
+  produces a single plain text result.
+
+### Result Display
+
+Name table results show the individual rolls for each part alongside the
+assembled name:
+```
+English Names
+[3, 5] William Fletcher
+
+Norse Names
+[2, 4, 1] Sigrid the Unlucky Haraldsson
 ```
 
-### Verification
-
-When tables are loaded, LoMP checks each file for:
-- Valid JSON structure
-- Required fields present
-- No gaps or overlaps in roll ranges
-- Roll values within the valid range for `totalSides`
-- Blank result text
-
-Any errors or warnings are shown in a dismissible panel at the top of the Oracle tab.
-Only tables that pass all checks are loaded and available to roll on.
+### Example with Three Parts
+```json
+{
+  "type": "name",
+  "name": "Norse Names",
+  "parts": [
+    {
+      "name": "firstname",
+      "totalSides": 4,
+      "entries": [
+        { "minRoll": 1, "maxRoll": 1, "text": "Björn" },
+        { "minRoll": 2, "maxRoll": 2, "text": "Sigrid" },
+        { "minRoll": 3, "maxRoll": 3, "text": "Harald" },
+        { "minRoll": 4, "maxRoll": 4, "text": "Astrid" }
+      ]
+    },
+    {
+      "name": "byname",
+      "totalSides": 4,
+      "entries": [
+        { "minRoll": 1, "maxRoll": 2, "text": "Ironside" },
+        { "minRoll": 3, "maxRoll": 3, "text": "the Proud" },
+        { "minRoll": 4, "maxRoll": 4, "text": "the Unlucky" }
+      ]
+    },
+    {
+      "name": "lastname",
+      "totalSides": 4,
+      "entries": [
+        { "minRoll": 1, "maxRoll": 2, "text": "Haraldsson" },
+        { "minRoll": 3, "maxRoll": 3, "text": "Eriksdóttir" },
+        { "minRoll": 4, "maxRoll": 4, "text": "Sigurdsson" }
+      ]
+    }
+  ]
+}
+```
 
 ## Dice Combinations
 
