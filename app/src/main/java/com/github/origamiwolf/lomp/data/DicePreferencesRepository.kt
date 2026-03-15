@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
+import com.github.origamiwolf.lomp.data.model.oracle.OracleHistoryEntry
+import kotlinx.serialization.builtins.ListSerializer
 
 // This creates a single DataStore instance tied to the application context.
 // The delegate pattern here means Context.dataStore is available anywhere
@@ -31,6 +33,8 @@ class DicePreferencesRepository(private val context: Context) {
     companion object {
         private val DICE_USAGE_KEY = stringPreferencesKey("dice_usage")
         private val DICE_HISTORY_KEY = stringPreferencesKey("dice_history")
+        // Add to companion object
+        private val ORACLE_HISTORY_KEY = stringPreferencesKey("oracle_history")
     }
 
     // A configured Json instance.
@@ -113,6 +117,34 @@ class DicePreferencesRepository(private val context: Context) {
                 }
             }
         }
+
+// Add these two functions alongside the existing history functions
+
+    val oracleHistoryFlow: Flow<List<OracleHistoryEntry>> = context.dataStore.data
+        .map { preferences ->
+            val raw = preferences[ORACLE_HISTORY_KEY]
+            if (raw == null) {
+                emptyList()
+            } else {
+                try {
+                    Json.decodeFromString(
+                        ListSerializer(OracleHistoryEntry.serializer()),
+                        raw
+                    )
+                } catch (e: Exception) {
+                    emptyList()
+                }
+            }
+        }
+
+    suspend fun saveOracleHistory(history: List<OracleHistoryEntry>) {
+        context.dataStore.edit { preferences ->
+            preferences[ORACLE_HISTORY_KEY] = Json.encodeToString(
+                ListSerializer(OracleHistoryEntry.serializer()),
+                history
+            )
+        }
+    }
 
     /**
      * Save an updated history list to disk.

@@ -18,10 +18,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.github.origamiwolf.lomp.data.DicePreferencesRepository
+import com.github.origamiwolf.lomp.data.model.oracle.OracleHistoryEntry
+import com.github.origamiwolf.lomp.data.model.oracle.OracleHistoryResult
 
 class OracleViewModel(
     private val context: Context,
-    private val repository: OracleRepository
+    private val repository: OracleRepository,
+    private val preferencesRepository: DicePreferencesRepository
 ) : ViewModel() {
 
     // --- Folder URI ---
@@ -57,7 +61,10 @@ class OracleViewModel(
     private val _rollOutput = MutableStateFlow<OracleRollOutput?>(null)
     val rollOutput: StateFlow<OracleRollOutput?> = _rollOutput.asStateFlow()
 
-    // --- Verification results ---
+    // --- Oracle history ---
+    private val _oracleHistory = MutableStateFlow<List<OracleHistoryEntry>>(emptyList())
+    val oracleHistory: StateFlow<List<OracleHistoryEntry>> = _oracleHistory.asStateFlow()
+
     // --- Verification results ---
     private val _verificationResults = MutableStateFlow<List<OracleTableVerifier.VerificationResult>>(emptyList())
     val verificationResults: StateFlow<List<OracleTableVerifier.VerificationResult>> =
@@ -71,9 +78,14 @@ class OracleViewModel(
         viewModelScope.launch {
             repository.folderUriFlow.collect { uri ->
                 _folderUri.value = uri
-                if (uri != null) {
+                if (uri != null && _currentNodes.value.isEmpty()) {
                     loadTables(uri)
                 }
+            }
+        }
+        viewModelScope.launch {
+            preferencesRepository.oracleHistoryFlow.collect { history ->
+                _oracleHistory.value = history
             }
         }
     }
@@ -91,6 +103,25 @@ class OracleViewModel(
         val uri = _folderUri.value ?: return
         viewModelScope.launch {
             loadTables(uri)
+        }
+    }
+
+    private fun persistOracleResult(output: OracleRollOutput) {
+        val entry = OracleHistoryEntry(
+            tableName = output.tableName,
+            results = output.results.map { result ->
+                OracleHistoryResult(
+                    rolls = result.rolls,
+                    text = result.text
+                )
+            }
+        )
+        val updated = (_oracleHistory.value.toMutableList().also {
+            it.add(0, entry)
+        }).take(10)
+        _oracleHistory.value = updated
+        viewModelScope.launch {
+            preferencesRepository.saveOracleHistory(updated)
         }
     }
 
@@ -152,11 +183,15 @@ class OracleViewModel(
     // --- Rolling ---
 
     fun rollOnTable(tableNode: OracleNode.Table) {
-        _rollOutput.value = OracleRoller.roll(tableNode.table)
+        val output = OracleRoller.roll(tableNode.table)
+        _rollOutput.value = output
+        persistOracleResult(output)
     }
 
     fun rollOnNameTable(tableNode: OracleNode.NameTable) {
-        _rollOutput.value = NameRoller.roll(tableNode.table)
+        val output = NameRoller.roll(tableNode.table)
+        _rollOutput.value = output
+        persistOracleResult(output)
     }
 
     // --- Error panel ---
@@ -173,11 +208,12 @@ class OracleViewModel(
 
     class Factory(
         private val context: Context,
-        private val repository: OracleRepository
+        private val repository: OracleRepository,
+        private val preferencesRepository: DicePreferencesRepository
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             @Suppress("UNCHECKED_CAST")
-            return OracleViewModel(context, repository) as T
+            return OracleViewModel(context, repository, preferencesRepository) as T
         }
     }
 }

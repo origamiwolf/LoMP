@@ -148,7 +148,10 @@ fun LoMPApp(
                 )
             }
             composable(Screen.Oracle.route) {
-                OracleScreen(oracleRepository = oracleRepository)
+                OracleScreen(
+                    oracleRepository = oracleRepository,
+                    dicePreferencesRepository = dicePreferencesRepository
+                )
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(diceComboRepository = diceComboRepository)

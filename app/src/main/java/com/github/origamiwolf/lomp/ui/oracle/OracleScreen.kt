@@ -26,14 +26,18 @@ import com.github.origamiwolf.lomp.data.OracleRepository
 import com.github.origamiwolf.lomp.data.model.oracle.OracleNode
 import com.github.origamiwolf.lomp.data.model.oracle.OracleRollOutput
 import com.github.origamiwolf.lomp.oracle.OracleTableVerifier
+import com.github.origamiwolf.lomp.data.DicePreferencesRepository
+import com.github.origamiwolf.lomp.data.model.oracle.OracleHistoryEntry
 
 @Composable
 fun OracleScreen(
     oracleRepository: OracleRepository,
+    dicePreferencesRepository: DicePreferencesRepository,
     viewModel: OracleViewModel = viewModel(
         factory = OracleViewModel.Factory(
             LocalContext.current.applicationContext,
-            oracleRepository
+            oracleRepository,
+            dicePreferencesRepository
         )
     )
 ) {
@@ -44,6 +48,7 @@ fun OracleScreen(
     val rollOutput by viewModel.rollOutput.collectAsState()
     val verificationResults by viewModel.verificationResults.collectAsState()
     val showErrorPanel by viewModel.showErrorPanel.collectAsState()
+    val oracleHistory by viewModel.oracleHistory.collectAsState()
 
     val folderPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
@@ -181,6 +186,24 @@ fun OracleScreen(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
+
+// ── Oracle History ───────────────────────────────────────────────
+        if (oracleHistory.isNotEmpty()) {
+            HorizontalDivider()
+
+            Text(
+                text = "Last ${oracleHistory.size} Rolls",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                oracleHistory.forEach { entry ->
+                    OracleHistoryRow(entry = entry)
+                }
+            }
+        }
+
     }
 }
 
@@ -466,5 +489,25 @@ fun EmptyStateHint(text: String) {
         fontSize = 13.sp,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(vertical = 4.dp)
+    )
+}
+
+/**
+ * Formats a history entry as:
+ * TableName — [r1, r2] Result1, Result2
+ *
+ * Multiple results from roll twice are shown comma separated
+ * with their individual rolls inline.
+ */
+@Composable
+fun OracleHistoryRow(entry: OracleHistoryEntry) {
+    val resultText = entry.results.joinToString(", ") { result ->
+        val rollString = result.rolls.joinToString(", ")
+        "[$rollString] ${result.text}"
+    }
+    Text(
+        text = "${entry.tableName} — $resultText",
+        fontSize = 14.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }
