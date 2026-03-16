@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.github.origamiwolf.lomp"
-        buildConfigField("String", "VERSION_NAME", "\"1.0\"")
+        buildConfigField("String", "VERSION_NAME", "\"1.1\"")
         minSdk = 26
         targetSdk = 34
         versionCode = 2
