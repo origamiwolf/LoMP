@@ -92,6 +92,7 @@ object OracleTableVerifier {
         }
         when (val result = entry.result) {
             is OracleResult.SubTable -> {
+                // text field is optional — no validation needed for it
                 val subTable = OracleTable(
                     name = result.name,
                     totalSides = result.totalSides,

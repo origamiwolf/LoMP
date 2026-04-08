@@ -35,6 +35,7 @@ sealed class OracleResult {
     @Serializable
     @SerialName("table")
     data class SubTable(
+        val text: String = "",
         val name: String,
         val totalSides: Int,
         val entries: List<OracleEntry>

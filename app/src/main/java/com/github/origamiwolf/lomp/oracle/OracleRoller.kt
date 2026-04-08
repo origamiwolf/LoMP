@@ -12,7 +12,7 @@ object OracleRoller {
     fun roll(table: OracleTable): OracleRollOutput {
         val results = mutableListOf<RolledResult>()
         val errors = mutableListOf<String>()
-        rollOnTable(table, emptyList(), results, errors)
+        rollOnTable(table, emptyList(), results, errors, parentText = "")
         return OracleRollOutput(
             tableName = table.name,
             results = results,
@@ -24,7 +24,8 @@ object OracleRoller {
         table: OracleTable,
         parentRolls: List<Int>,
         results: MutableList<RolledResult>,
-        errors: MutableList<String>
+        errors: MutableList<String>,
+        parentText: String
     ) {
         if (results.size >= MAX_RESULTS) {
             errors.add("Maximum result limit ($MAX_RESULTS) reached")
@@ -45,22 +46,34 @@ object OracleRoller {
 
         when (val result = entry.result) {
             is OracleResult.Value -> {
-                results.add(RolledResult(rolls = currentRolls, text = result.text))
+                // Prepend parent text if present
+                val fullText = if (parentText.isNotEmpty()) {
+                    "$parentText ${result.text}"
+                } else {
+                    result.text
+                }
+                results.add(RolledResult(rolls = currentRolls, text = fullText))
             }
+
             is OracleResult.RollTwice -> {
-                // Each of the two rolls is independent —
-                // both start fresh from parentRolls
-                rollOnTable(table, parentRolls, results, errors)
-                rollOnTable(table, parentRolls, results, errors)
+                // Each roll is independent, passing parentText through
+                rollOnTable(table, parentRolls, results, errors, parentText)
+                rollOnTable(table, parentRolls, results, errors, parentText)
             }
+
             is OracleResult.SubTable -> {
+                // Combine parent text with subtable text
+                val combinedText = listOf(parentText, result.text)
+                    .filter { it.isNotEmpty() }
+                    .joinToString(" ")
+
                 val subTable = OracleTable(
                     name = result.name,
                     totalSides = result.totalSides,
                     entries = result.entries
                 )
-                // Pass currentRolls so the subtable roll is appended
-                rollOnTable(subTable, currentRolls, results, errors)
+                // Pass combined text down so subtable result appends to it
+                rollOnTable(subTable, currentRolls, results, errors, combinedText)
             }
         }
     }
