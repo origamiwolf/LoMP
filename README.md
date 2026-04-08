@@ -92,6 +92,7 @@ Each table is a single `.json` file with the following structure:
       "maxRoll": 5,
       "result": {
         "type": "table",
+        "text": "subtable text",
         "name": "Subtable Name",
         "totalSides": 3,
         "entries": [
