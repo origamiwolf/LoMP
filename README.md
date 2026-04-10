@@ -82,27 +82,33 @@ Only tables that pass all checks are loaded and available to roll on.
 Each table is a single `.json` file with the following structure:
 ```json
 {
-  "name": "Table Name",
-  "totalSides": 6,
+  "name": "Random Encounter",
+  "totalSides": 8,
+  "subtables": {
+    "Monster Type": {
+      "totalSides": 3,
+      "entries": [
+        { "minRoll": 1, "maxRoll": 1, "result": { "type": "value", "text": "Goblin" } },
+        { "minRoll": 2, "maxRoll": 2, "result": { "type": "value", "text": "Troll" } },
+        { "minRoll": 3, "maxRoll": 3, "result": { "type": "value", "text": "Dragon" } }
+      ]
+    }
+  },
   "entries": [
-    { "minRoll": 1, "maxRoll": 3, "result": { "type": "value", "text": "Result text" } },
+    { "minRoll": 1, "maxRoll": 2, "result": { "type": "value", "text": "Bandits" } },
+    { "minRoll": 3, "maxRoll": 3, "result": { "type": "value", "text": "Merchants" } },
     { "minRoll": 4, "maxRoll": 4, "result": { "type": "rollTwice" } },
+    { "minRoll": 5, "maxRoll": 5, "result": { "type": "value", "text": "Wild Animals" } },
     {
-      "minRoll": 5,
-      "maxRoll": 5,
-      "result": {
-        "type": "table",
-        "text": "subtable text",
-        "name": "Subtable Name",
-        "totalSides": 3,
-        "entries": [
-          { "minRoll": 1, "maxRoll": 1, "result": { "type": "value", "text": "Result A" } },
-          { "minRoll": 2, "maxRoll": 2, "result": { "type": "value", "text": "Result B" } },
-          { "minRoll": 3, "maxRoll": 3, "result": { "type": "value", "text": "Result C" } }
-        ]
-      }
+      "minRoll": 6,
+      "maxRoll": 7,
+      "result": { "type": "tableRef", "text": "Monster", "ref": "Monster Type" }
     },
-    { "minRoll": 6, "maxRoll": 6, "result": { "type": "value", "text": "Another result" } }
+    {
+      "minRoll": 8,
+      "maxRoll": 8,
+      "result": { "type": "tableRef", "text": "Undead", "ref": "Monster Type" }
+    }
   ]
 }
 ```
@@ -113,12 +119,14 @@ Each table is a single `.json` file with the following structure:
 |------|-------------|
 | `value` | A plain text result. Requires a `text` field. |
 | `rollTwice` | Roll twice more on the same table and return both results. |
-| `table` | Roll on an inline subtable. Requires `name`, `totalSides`, and `entries`. |
+| `tableRef` | Roll on a named subtable defined in the top-level `subtables` map. Requires a `ref` field matching a subtable name. An optional `text` field is prepended to the subtable result. |
+| `table` | Roll on an inline subtable embedded directly in the entry (legacy format, still supported). Requires `name`, `totalSides`, and `entries`. An optional `text` field is prepended to the subtable result. |
 
 ### Rules
 - `minRoll` and `maxRoll` are inclusive. A range of `1–3` covers rolls 1, 2, and 3.
 - Every number from 1 to `totalSides` must be covered by exactly one entry.
-- Subtables follow the same rules as top-level tables.
+- The `subtables` map is optional. Define subtables there when the same subtable is referenced by more than one entry — this avoids repeating the definition.
+- Subtable definitions support `value`, `rollTwice`, and inline `table` result types. Subtable definitions cannot themselves use `tableRef`.
 - Subtable nesting beyond 2 levels will trigger a warning but will still load.
 - Roll-twice chains are capped at 10 total results.
 
